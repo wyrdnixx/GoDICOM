@@ -1,0 +1,6 @@
+{
+    "max_goroutines": 50,
+    "root_directory": "/home/ulewu/Projects/Golang/GoDICOM/TestDaten",
+    "connString-chaos" :"sqlserver://svcDicomImport:TestPassword@MSSQL?database=dicomImport-go",
+    "connString" :"sqlserver://svcDicomImport:TestPassword@192.168.56.101?database=dicomImport-go"
+}

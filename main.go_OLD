@@ -1,0 +1,237 @@
+package main
+
+import (
+	"database/sql"
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"sync"
+
+	_ "github.com/mattn/go-sqlite3"
+	"github.com/suyashkumar/dicom"
+	"github.com/suyashkumar/dicom/pkg/tag"
+)
+
+func main() {
+
+	fmt.Printf("Starting")
+
+	root := "/home/ulewu/Projects/Golang/GoDICOM/TestDaten"
+
+	// Open the SQLite database
+	db, err := sql.Open("sqlite3", "files.db")
+	if err != nil {
+		log.Fatalf("Failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	// Create the table if it doesn't exist
+	createTableSQL := `CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY AUTOINCREMENT, filename TEXT)`
+	_, err = db.Exec(createTableSQL)
+	if err != nil {
+		log.Fatalf("Failed to create table: %v", err)
+	}
+
+	forFiles(root, db)
+	//Tests()
+
+	fmt.Printf("Finished")
+}
+
+func forFiles(folderPath string, db *sql.DB) {
+
+	// Use a WaitGroup to wait for all goroutines to finish
+	var wg sync.WaitGroup
+
+	// Channel to collect filenames
+	fileChan := make(chan string)
+
+	// Launch a goroutine to insert filenames into the database
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		insertFilenames(db, fileChan)
+	}()
+
+	// Walk through the directory recursively
+	err := filepath.Walk(folderPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			// Handle errors accessing a file/directory
+			log.Printf("prevent panic by handling failure accessing a path %q: %v\n", path, err)
+			return err
+		}
+		// Check if it's a regular file (not a directory)
+		if !info.IsDir() {
+			//fmt.Println("File:", path)
+			//getDicomData(path)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				fileChan <- path
+			}()
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		log.Fatalf("error walking the path %q: %v\n", folderPath, err)
+	}
+
+	// Close the channel after all files have been sent
+	go func() {
+		wg.Wait()
+		close(fileChan)
+	}()
+
+	// Wait for the insert goroutine to finish
+	//wg.Wait()
+
+	fmt.Println("All filenames have been written to the database.")
+
+}
+
+// insertFilenames inserts filenames from the channel into the database
+func insertFilenames(db *sql.DB, fileChan <-chan string) {
+	for filename := range fileChan {
+		_, err := db.Exec("INSERT INTO files (filename) VALUES (?)", filename)
+		if err != nil {
+			log.Printf("Failed to insert filename %s: %v", filename, err)
+		} else {
+			fmt.Printf("Inserted filename: %s\n", filename)
+		}
+	}
+
+}
+
+func getDicomData(filename string) {
+	fmt.Println(filename)
+	//fmt.Println("FileName: ", filename)
+	// Open the DICOM file
+	//fmt.Println("Processing file:", filename)
+
+	// Open and parse the DICOM file
+	dcm, err := dicom.ParseFile(filename, nil)
+	if err != nil {
+		log.Printf("Error parsing DICOM file %s: %v\n", filename, err)
+		//return nil // Continue with the next file
+	}
+
+	// Extract the PatientName tag
+	elements, _ := dcm.FindElementByTag(tag.PatientName)
+	if elements != nil {
+		fmt.Printf("%v Patient Name: %v\n", filename, elements.Value.GetValue())
+	} else {
+		fmt.Printf("Patient Name tag not found in file %s\n", filename)
+	}
+}
+
+func getDicomData_test(filename string) {
+	fmt.Println("opening: ", filename)
+	file, err := os.Open(filename)
+	if err != nil {
+		log.Fatalf("failed to open DICOM file: %v", err)
+	}
+	defer file.Close()
+
+	// Parse the DICOM file
+	var bytesToRead int64 = 10024
+	d, err := dicom.Parse(file, bytesToRead, nil)
+
+	if err != nil {
+
+		fmt.Println(err)
+
+		return
+
+	}
+
+	// Get the PatientName element
+
+	//patientName, err := d.FindElementByTag(dicom.Tag{Group: 0x0010, Element: 0x0010})
+	patientName, err := d.FindElementByTag(tag.PatientName)
+
+	if err != nil {
+		fmt.Println("Err from FindElementByTag: ", err)
+		return
+	}
+	println("Name: ", patientName)
+
+}
+
+func Tests() {
+	// See also: dicom.Parse, which uses a more generic io.Reader API.
+	filename := "STUDY1/STUDY1/SERIES1/INST1.dcm"
+	//dataset, _ := dicom.ParseFile(filename, nil)
+
+	// Dataset will nicely print the DICOM dataset data out of the box.
+	//fmt.Println(dataset)
+
+	// Open the DICOM file
+	file, err := os.Open(filename)
+	if err != nil {
+		log.Fatalf("failed to open DICOM file: %v", err)
+	}
+	defer file.Close()
+
+	// Parse the DICOM file
+	dataSet, err := dicom.ParseFile(filename, nil)
+	if err != nil {
+		log.Fatalf("failed to parse DICOM file: %v", err)
+	}
+
+	//(0010,0010)	PN	Patient's Name
+	//(0010,0020)	LO	Patient ID
+	//(0010,0030)	DA	Patient's Birth Date
+	//(0008,0080)	LO	Institution Name
+	//(0008,0081)	ST	Institution Address
+	// Extract and print some DICOM string tags
+	for _, elem := range dataSet.Elements {
+
+		if elem.Tag == tag.PatientName {
+
+			fmt.Println("found: ", elem.Value.GetValue())
+		}
+		//fmt.Println(elem.Tag, " - ", elem.Value.GetValue())
+
+		switch elem.Tag.String() {
+		case "(0010,0010)":
+			fmt.Println("Name: ", elem.Value.GetValue())
+		case "(0010,0020)":
+			fmt.Println("PatID: ", elem.Value.GetValue())
+		case "((0010,0030)":
+			fmt.Println("BrithDate: ", elem.Value.GetValue())
+		case "(0008,0080)":
+			fmt.Println("Institution Name: ", elem.Value.GetValue())
+		case "(0008,0081)":
+			fmt.Println("Institution Address: ", elem.Value.GetValue())
+
+		}
+
+		/* if elem.Tag.String() == "(0010,0010)" {
+			fmt.Println("Name: ", elem.Value.GetValue())
+			reader := bufio.NewReader(os.Stdin)
+			// Wait for the Enter key
+			_, err := reader.ReadString('\n')
+			if err != nil {
+				fmt.Println("An error occurred:", err)
+				return
+			}
+		}
+		*/
+		// Example: Print the Patient's Name (Tag: 0010,0010)
+		/* if elem.Tag == dicom.TagPatientName {
+			patientName := elem.Value.GetValue()
+			fmt.Printf("Patient's Name: %v\n", patientName)
+		}
+
+		// Example: Print the Study Date (Tag: 0008,0020)
+		if elem.Tag == dicom.TagStudyDate {
+			studyDate := elem.Value.GetValue()
+			fmt.Printf("Study Date: %v\n", studyDate)
+		} */
+
+		// Add more tags as needed...
+	}
+}
