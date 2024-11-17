@@ -184,6 +184,9 @@ func main() {
 	//log.Fatalf("fatal %d ", 32)
 	initDB(db)
 
+	go startWebservice() // Start the webservice in an extra go routine
+
 	startFileRunner()
+
 	exitProgramm()
 }
