@@ -15,6 +15,7 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 	//	fmt.Fprintf(w, "Main Page\n", vars["category"])
 	fmt.Fprintf(w, "Main Page\n")
 	fmt.Fprintf(w, "Server start time: %s\n", startTime)
+	fmt.Fprintf(w, "Filerunner running status: %t\n", fileRunnerRunning)
 	fmt.Fprintf(w, "activeGoroutines: %d\n", activeGoroutines)
 	fmt.Fprintf(w, "cFilesSkippedAlreadyProcessed: %d\n", cFilesSkippedAlreadyProcessed)
 	fmt.Fprintf(w, "cFilesImportedDCMToDB: %d\n", cFilesImportedDCMToDB)
@@ -28,7 +29,7 @@ func StatusHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func startWebservice() {
-	log.Printf("webservice: Stating webservice")
+
 	r := mux.NewRouter()
 	r.HandleFunc("/", HomeHandler)
 	r.HandleFunc("/status", StatusHandler)
@@ -43,6 +44,7 @@ func startWebservice() {
 		ReadTimeout:  15 * time.Second,
 	}
 
+	log.Printf("webservice: Stating webservice at: %s", srv.Addr)
 	log.Fatal(srv.ListenAndServe())
 
 }
