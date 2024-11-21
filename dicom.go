@@ -11,7 +11,7 @@ import (
 )
 
 // ToDo : Insitution Name
-func getDicomData(filename string) (string, string, error) {
+func getDicomData(filename string) (string, string, string, error) {
 	log.Println(filename)
 	//fmt.Println("FileName: ", filename)
 	// Open the DICOM file
@@ -21,15 +21,17 @@ func getDicomData(filename string) (string, string, error) {
 	dcm, err := dicom.ParseFile(filename, nil)
 	if err != nil {
 		//log.Printf("Error parsing DICOM file - no valid DICOM %s: %v\n", filename, err)
-		return "", "", err
+		return "", "", "", err
 	}
 
 	// Extract the PatientName tag
 	PatientName := ""
 	PatientID := ""
+	InstitutionName := ""
 
 	ePatientName, _ := dcm.FindElementByTag(tag.PatientName)
 	ePatientID, _ := dcm.FindElementByTag(tag.PatientID)
+	eInstitutionName, _ := dcm.FindElementByTag(tag.InstitutionName)
 	//patientName, err := dcm.FindElementByTag(tag.PatientName)
 
 	if ePatientName != nil {
@@ -50,8 +52,17 @@ func getDicomData(filename string) (string, string, error) {
 		PatientID = "tag.PatientID not found"
 	}
 
+	if eInstitutionName != nil {
+		//PatientID = ePatientID.Value.GetValue().(string)
+		InstitutionName = fmt.Sprintf("%v", eInstitutionName.Value.GetValue())
+
+	} else {
+		//log.Printf("Patient Name tag not found in file %s\n", filename)
+		InstitutionName = "tag.InstitutionName not found"
+	}
+
 	// return fmt.Sprintf("%v", ePatientName.Value.GetValue()), nil
-	return PatientName, PatientID, nil
+	return PatientName, PatientID, InstitutionName, nil
 }
 
 // SendDicomFile sends a DICOM file to a remote DICOM SCP using storescu (DCMTK)

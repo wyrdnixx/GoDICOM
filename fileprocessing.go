@@ -25,7 +25,7 @@ func processFile(path string, wg *sync.WaitGroup, sem chan struct{}, activeGorou
 
 	if !exists { // if file not already present in DB
 
-		PatientName, PatientID, err := getDicomData(path)
+		PatientName, PatientID, InstitutionName, err := getDicomData(path)
 		if err != nil {
 			InsertFilenameToDB(db, path, 0, PatientName, PatientID, "", "0", "0") //non DICOM file
 			cFilesImportedNoDCMToDB++
@@ -36,11 +36,11 @@ func processFile(path string, wg *sync.WaitGroup, sem chan struct{}, activeGorou
 			res, err := SendDicomFile(Config.DicomServerLocalAET, Config.DicomServerRemoteAET, Config.DicomServer, Config.DicomServerPort, path)
 			if err != nil {
 				log.Printf("error sending dicom file: %s", err)
-				err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, "institute", "0", fmt.Sprintf("%s", err)) // Valid DICOM file
+				err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, InstitutionName, "0", fmt.Sprintf("%s", err)) // Valid DICOM file
 				log.Printf("DB insert error: %s", err)
 			} else {
 				log.Printf("result: %s", res)
-				err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, "institute", "1", res) // Valid DICOM file
+				err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, InstitutionName, "1", res) // Valid DICOM file
 				log.Printf("DB insert error: %s", err)
 			}
 
