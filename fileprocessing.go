@@ -33,7 +33,7 @@ func processFile(path string, wg *sync.WaitGroup, sem chan struct{}, activeGorou
 			//log.Printf(patname)
 
 			// send dicom file
-			res, err := SendDicomFile("test", "SANTEFSRV1", "term2022", path, 11125)
+			res, err := SendDicomFile(Config.DicomServerLocalAET, Config.DicomServerRemoteAET, Config.DicomServer, Config.DicomServerPort, path)
 			if err != nil {
 				log.Printf("error sending dicom file: %s", err)
 				err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, "institute", "0", fmt.Sprintf("%s", err)) // Valid DICOM file
@@ -92,7 +92,7 @@ func startFileRunner() {
 
 	err := walkDir(Config.RootDirectory, &wg, sem, &activeGoroutines)
 	if err != nil {
-		fmt.Printf("Error walking the directory: %v\n", err)
+		fmt.Printf("Error walking the directory %s : %v\n", Config.RootDirectory, err)
 		return
 	}
 

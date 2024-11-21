@@ -12,10 +12,13 @@ import (
 
 // Config struct to hold the configuration values
 type Configguration struct {
-	MaxGoroutines int    `json:"max_goroutines"`
-	RootDirectory string `json:"root_directory"`
-	ConnString    string `json:"connString"`
-	DicomServer   string `json:"DicomServer"`
+	MaxGoroutines        int    `json:"MaxGoroutines"`
+	RootDirectory        string `json:"RootDirectory"`
+	ConnString           string `json:"ConnString"`
+	DicomServer          string `json:"DicomServer"`
+	DicomServerPort      string `json:"DicomServerPort"`
+	DicomServerLocalAET  string `json:"DicomServerLocalAET"`
+	DicomServerRemoteAET string `json:"DicomServerRemoteAET"`
 }
 
 var Config Configguration
@@ -91,7 +94,7 @@ func main() {
 		return // Exit Programm
 	}
 
-	log.Printf("'main' config loaded - Scann directory: %s", Config.ConnString)
+	log.Printf("'main' config loaded - Scann directory: %s", Config.RootDirectory)
 	// Connect to the database
 	db, err = sql.Open("sqlserver", Config.ConnString)
 	if err != nil {
