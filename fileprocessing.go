@@ -27,20 +27,25 @@ func processFile(path string, wg *sync.WaitGroup, sem chan struct{}, activeGorou
 
 		PatientName, PatientID, err := getDicomData(path)
 		if err != nil {
-			InsertFilenameToDB(db, path, 0, PatientName, PatientID) //non DICOM file
+			InsertFilenameToDB(db, path, 0, PatientName, PatientID, "", "0", "0") //non DICOM file
 			cFilesImportedNoDCMToDB++
 		} else {
 			//log.Printf(patname)
-			InsertFilenameToDB(db, path, 1, PatientName, PatientID) // Valid DICOM file
-			cFilesImportedDCMToDB++
 
 			// send dicom file
 			res, err := SendDicomFile("test", "SANTEFSRV1", "term2022", path, 11125)
 			if err != nil {
 				log.Printf("error sending dicom file: %s", err)
+				err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, "institute", "0", fmt.Sprintf("%s", err)) // Valid DICOM file
+				log.Printf("DB insert error: %s", err)
 			} else {
 				log.Printf("result: %s", res)
+				err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, "institute", "1", res) // Valid DICOM file
+				log.Printf("DB insert error: %s", err)
 			}
+
+			cFilesImportedDCMToDB++
+
 		}
 
 	} else {

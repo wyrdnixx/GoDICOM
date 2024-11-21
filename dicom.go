@@ -10,6 +10,7 @@ import (
 	//"github.com/gradienthealth/dicom"
 )
 
+// ToDo : Insitution Name
 func getDicomData(filename string) (string, string, error) {
 	log.Println(filename)
 	//fmt.Println("FileName: ", filename)
