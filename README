@@ -1,0 +1,8 @@
+## GoDicom
+
+Scans a directory for dicom files.
+sends file to a dicom C-STORE Server
+stores filenames and status to database
+
+
+-> Needs DCMTK installed and in $PATH variable
