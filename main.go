@@ -19,6 +19,7 @@ type Configguration struct {
 	DicomServerPort      string `json:"DicomServerPort"`
 	DicomServerLocalAET  string `json:"DicomServerLocalAET"`
 	DicomServerRemoteAET string `json:"DicomServerRemoteAET"`
+	DicomInstituteFilter string `json:"DicomInstituteFilter"`
 }
 
 var Config Configguration

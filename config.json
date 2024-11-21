@@ -6,5 +6,6 @@
     "DicomServer" : "term2022",
     "DicomServerPort" : "11125",
     "DicomServerLocalAET" : "DicomImporter",
-    "DicomServerRemoteAET" : "DicomStore"
+    "DicomServerRemoteAET" : "DicomStore",
+    "DicomInstituteFilter" : "[Klinikum Friedrichshafen]|[test]"
 }

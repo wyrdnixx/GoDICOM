@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -30,18 +31,41 @@ func processFile(path string, wg *sync.WaitGroup, sem chan struct{}, activeGorou
 			InsertFilenameToDB(db, path, 0, PatientName, PatientID, "", "0", "0") //non DICOM file
 			cFilesImportedNoDCMToDB++
 		} else {
-			//log.Printf(patname)
 
-			// send dicom file
-			res, err := SendDicomFile(Config.DicomServerLocalAET, Config.DicomServerRemoteAET, Config.DicomServer, Config.DicomServerPort, path)
-			if err != nil {
-				log.Printf("error sending dicom file: %s", err)
-				err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, InstitutionName, "0", fmt.Sprintf("%s", err)) // Valid DICOM file
-				log.Printf("DB insert error: %s", err)
+			// check for valid institution
+
+			// Split the string by "|"
+			splitFilters := strings.Split(Config.DicomInstituteFilter, "|")
+
+			// Flag to check if any split part contains the entire DicomInstituteFilter
+			validInstitute := false
+
+			// Iterate over the split string and check if any part contains the original filter
+			for _, filter := range splitFilters {
+				if strings.Contains(InstitutionName, filter) {
+					validInstitute = true
+					break
+				}
+			}
+
+			if !validInstitute {
+				err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, InstitutionName, "0", "Not valid Institute") // Valid DICOM file
+				if err != nil {
+					log.Printf("DB insert error: %s", err)
+				}
 			} else {
-				log.Printf("result: %s", res)
-				err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, InstitutionName, "1", res) // Valid DICOM file
-				log.Printf("DB insert error: %s", err)
+
+				// send dicom file
+				res, err := SendDicomFile(Config.DicomServerLocalAET, Config.DicomServerRemoteAET, Config.DicomServer, Config.DicomServerPort, path)
+				if err != nil {
+					log.Printf("error sending dicom file: %s", err)
+					err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, InstitutionName, "0", fmt.Sprintf("%s", err)) // Valid DICOM file
+					log.Printf("DB insert error: %s", err)
+				} else {
+					log.Printf("result: %s", res)
+					err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, InstitutionName, "1", res) // Valid DICOM file
+					log.Printf("DB insert error: %s", err)
+				}
 			}
 
 			cFilesImportedDCMToDB++
