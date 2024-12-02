@@ -1,7 +1,9 @@
 package main
 
 import (
+	"archive/tar"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -124,4 +126,58 @@ func startFileRunner() {
 	wg.Wait()
 	fmt.Println("\nAll files processed.")
 	fileRunnerRunning = false
+}
+
+// ExtractTarFile extracts a tar file and returns the path of the extracted files
+func ExtractTarFile(tarFilePath, destDir string) ([]string, error) {
+	// Open the tar file
+	tarFile, err := os.Open(tarFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open tar file: %w", err)
+	}
+	defer tarFile.Close()
+
+	// Create a new tar reader
+	tarReader := tar.NewReader(tarFile)
+
+	var extractedFiles []string
+
+	// Extract each file from the tar
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			// End of tar file
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to read tar entry: %w", err)
+		}
+
+		// Determine the destination file path
+		extractedFilePath := filepath.Join(destDir, header.Name)
+
+		// Create directories if necessary
+		if header.Typeflag == tar.TypeDir {
+			if err := os.MkdirAll(extractedFilePath, os.ModePerm); err != nil {
+				return nil, fmt.Errorf("failed to create directory: %w", err)
+			}
+		} else {
+			// Create the file
+			extractedFile, err := os.Create(extractedFilePath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create file: %w", err)
+			}
+
+			// Copy the file contents from the tar
+			if _, err := io.Copy(extractedFile, tarReader); err != nil {
+				return nil, fmt.Errorf("failed to copy file data: %w", err)
+			}
+			extractedFile.Close()
+		}
+
+		// Add the extracted file path to the list
+		extractedFiles = append(extractedFiles, extractedFilePath)
+	}
+
+	return extractedFiles, nil
 }
