@@ -14,7 +14,7 @@ import (
 )
 
 // processFile is the function that will be run in a new Goroutine for each file
-func processFile(path string, wg *sync.WaitGroup, sem chan struct{}, activeGoroutines *int32) {
+func processFile(path string, tarfile string, wg *sync.WaitGroup, sem chan struct{}, activeGoroutines *int32) {
 	defer wg.Done()
 	defer atomic.AddInt32(activeGoroutines, -1) // Decrement the counter when done
 	defer func() { <-sem }()                    // Release the semaphore slot when done
@@ -28,52 +28,87 @@ func processFile(path string, wg *sync.WaitGroup, sem chan struct{}, activeGorou
 
 	if !exists { // if file not already present in DB
 
-		PatientName, PatientID, InstitutionName, err := getDicomData(path)
-		if err != nil {
-			InsertFilenameToDB(db, path, 0, PatientName, PatientID, "", "0", "0") //non DICOM file
-			cFilesImportedNoDCMToDB++
+		if strings.HasSuffix(path, ".tar") {
+			log.Printf("File %s is a TAR file... extracting and processing sub-files", path)
+			// Get the filename from the path
+			tarFileName := filepath.Base(path)
+			tempFolder := Config.TempDir + "\\" + tarFileName
+			extractedFiles, err := ExtractTarFile(path, tempFolder)
+			//extractedFiles, err := extractRAR(path, Config.TempDir)
+			if err != nil {
+				log.Printf("Eror extracting tar file: %s : %s", path, err)
+				InsertFilenameToDB(db, path, 0, "", "", "", "0", fmt.Sprintf("%s", err)) //non DICOM file
+			} else {
+				// Print the paths of the extracted files
+				for _, file := range extractedFiles {
+					log.Println("processing Extracted file:", file)
+					processFile(file, " : "+path, wg, sem, activeGoroutines) // not extra go routine to make shure all files processed an cleanup tempdir after
+				}
+
+				// cleanup if temp file from tar archive
+				if strings.HasPrefix(tempFolder, Config.TempDir) {
+
+					// Get the directory of the file
+					//rootDir := filepath.Dir(tempFolder)
+					log.Printf("delete temp folder: %s", tempFolder)
+					// Use os.RemoveAll to delete the root directory and its contents
+					err := os.RemoveAll(tempFolder)
+					if err != nil {
+						log.Println("Error deleting root directory:", err)
+					} else {
+						log.Println("Root directory deleted successfully")
+					}
+				}
+			}
+
 		} else {
 
-			// check for valid institution
-
-			// Split the string by "|"
-			splitFilters := strings.Split(Config.DicomInstituteFilter, "|")
-
-			// Flag to check if any split part contains the entire DicomInstituteFilter
-			validInstitute := false
-
-			// Iterate over the split string and check if any part contains the original filter
-			for _, filter := range splitFilters {
-				if strings.Contains(InstitutionName, filter) {
-					validInstitute = true
-					break
-				}
-			}
-
-			if !validInstitute {
-				err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, InstitutionName, "0", "Not valid Institute") // Valid DICOM file
-				if err != nil {
-					log.Printf("DB insert error: %s", err)
-				}
+			PatientName, PatientID, InstitutionName, err := getDicomData(path)
+			if err != nil {
+				InsertFilenameToDB(db, tarfile+path, 0, PatientName, PatientID, "", "0", "0") //non DICOM file
+				cFilesImportedNoDCMToDB++
 			} else {
 
-				// send dicom file
-				res, err := SendDicomFile(Config.DicomServerLocalAET, Config.DicomServerRemoteAET, Config.DicomServer, Config.DicomServerPort, path)
-				if err != nil {
-					log.Printf("error sending dicom file: %s", err)
-					err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, InstitutionName, "0", fmt.Sprintf("%s", err)) // Valid DICOM file
-					log.Printf("DB insert error: %s", err)
-				} else {
-					log.Printf("result: %s", res)
-					err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, InstitutionName, "1", res) // Valid DICOM file
-					log.Printf("DB insert error: %s", err)
+				// check for valid institution
+
+				// Split the string by "|"
+				splitFilters := strings.Split(Config.DicomInstituteFilter, "|")
+
+				// Flag to check if any split part contains the entire DicomInstituteFilter
+				validInstitute := false
+
+				// Iterate over the split string and check if any part contains the original filter
+				for _, filter := range splitFilters {
+					if strings.Contains(InstitutionName, filter) {
+						validInstitute = true
+						break
+					}
 				}
+
+				if !validInstitute {
+					err := InsertFilenameToDB(db, tarfile+path, 1, PatientName, PatientID, InstitutionName, "0", "Not valid Institute") // Valid DICOM file
+					if err != nil {
+						log.Printf("DB insert error: %s", err)
+					}
+				} else {
+
+					// send dicom file
+					res, err := SendDicomFile(Config.DicomServerLocalAET, Config.DicomServerRemoteAET, Config.DicomServer, Config.DicomServerPort, path)
+					if err != nil {
+						log.Printf("error sending dicom file: %s", err)
+						err := InsertFilenameToDB(db, tarfile+path, 1, PatientName, PatientID, InstitutionName, "0", fmt.Sprintf("%s", err)) // Valid DICOM file
+						log.Printf("DB insert error: %s", err)
+					} else {
+						log.Printf("result: %s", res)
+						err := InsertFilenameToDB(db, tarfile+path, 1, PatientName, PatientID, InstitutionName, "1", res) // Valid DICOM file
+						log.Printf("DB insert error: %s", err)
+					}
+				}
+
+				cFilesImportedDCMToDB++
+
 			}
-
-			cFilesImportedDCMToDB++
-
 		}
-
 	} else {
 		cFilesSkippedAlreadyProcessed++
 	}
@@ -90,7 +125,7 @@ func walkDir(root string, wg *sync.WaitGroup, sem chan struct{}, activeGoroutine
 			wg.Add(1)
 			sem <- struct{}{}                    // Acquire a semaphore slot
 			atomic.AddInt32(activeGoroutines, 1) // Increment the counter for a new Goroutine
-			go processFile(path, wg, sem, activeGoroutines)
+			go processFile(path, "", wg, sem, activeGoroutines)
 		}
 		return nil
 	})
@@ -130,6 +165,11 @@ func startFileRunner() {
 
 // ExtractTarFile extracts a tar file and returns the path of the extracted files
 func ExtractTarFile(tarFilePath, destDir string) ([]string, error) {
+	// Check if the file has a .tar extension
+	if !strings.HasSuffix(tarFilePath, ".tar") {
+		return nil, fmt.Errorf("the file does not have a .tar extension")
+	}
+
 	// Open the tar file
 	tarFile, err := os.Open(tarFilePath)
 	if err != nil {
@@ -142,26 +182,44 @@ func ExtractTarFile(tarFilePath, destDir string) ([]string, error) {
 
 	var extractedFiles []string
 
-	// Extract each file from the tar
+	// Extract each file from the tar header *archive/tar.Header nil
 	for {
 		header, err := tarReader.Next()
 		if err == io.EOF {
 			// End of tar file
-			break
+			return extractedFiles, nil
+			//break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("failed to read tar entry: %w", err)
+			return extractedFiles, nil
 		}
+		// Invalid tar header, we just skip the current entry and move to the next
+		/*if err != nil {
+			if strings.Contains(err.Error(), "invalid tar header") {
+				// Skip this entry and continue reading the next entry
+				fmt.Printf("Warning: Invalid tar header, skipping entry...\n")
+				// Skip the invalid entry by calling Next again
+				break
+			}
+			return nil, fmt.Errorf("failed to read tar entry: %w", err)
+		}*/
 
-		// Determine the destination file path
+		// Determine the full path for the extracted file, including subdirectories
 		extractedFilePath := filepath.Join(destDir, header.Name)
 
-		// Create directories if necessary
+		// Handle directory entries
 		if header.Typeflag == tar.TypeDir {
+			// Ensure the directory exists
 			if err := os.MkdirAll(extractedFilePath, os.ModePerm); err != nil {
 				return nil, fmt.Errorf("failed to create directory: %w", err)
 			}
 		} else {
+			// Ensure the parent directory exists for files
+			dir := filepath.Dir(extractedFilePath)
+			if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+				return nil, fmt.Errorf("failed to create directory for file: %w", err)
+			}
+
 			// Create the file
 			extractedFile, err := os.Create(extractedFilePath)
 			if err != nil {
@@ -176,6 +234,7 @@ func ExtractTarFile(tarFilePath, destDir string) ([]string, error) {
 		}
 
 		// Add the extracted file path to the list
+		log.Printf("extracted: %s ", extractedFilePath)
 		extractedFiles = append(extractedFiles, extractedFilePath)
 	}
 

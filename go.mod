@@ -12,6 +12,7 @@ require (
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gradienthealth/dicom v0.3.0 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
+	github.com/nwaples/rardecode v1.1.3 // indirect
 	github.com/one-byte-data/obd-dicom v1.0.13 // indirect
 	golang.org/x/crypto v0.28.0 // indirect
 	golang.org/x/text v0.19.0 // indirect
