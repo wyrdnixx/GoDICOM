@@ -110,7 +110,7 @@ func processTarFile(path string) {
 	}
 }
 
-func processNonTarFile(path string, tarArchive string) {
+func processNonTarFile(path string) {
 	PatientName, PatientID, InstitutionName, err := getDicomData(path)
 	if err != nil {
 		log.Printf("non dicom file: %s", path)
