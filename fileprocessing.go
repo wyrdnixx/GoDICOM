@@ -13,131 +13,11 @@ import (
 	"time"
 )
 
-// processFile is the function that will be run in a new Goroutine for each file
-func processFile(path string, tarfile string, wg *sync.WaitGroup, sem chan struct{}, activeGoroutines *int32) {
-	defer wg.Done()
-	defer atomic.AddInt32(activeGoroutines, -1) // Decrement the counter when done
-	defer func() { <-sem }()                    // Release the semaphore slot when done
-
-	exists, err := checkFileInDB(db, path) //First check if file already in DB
-
-	if err != nil {
-		log.Printf("processFile: error checking for file entry in DB: %s", err)
-		return
-	}
-
-	if !exists { // if file not already present in DB
-
-		if strings.HasSuffix(path, ".tar") {
-			log.Printf("File %s is a TAR file... extracting and processing sub-files", path)
-			// Get the filename from the path
-			tarFileName := filepath.Base(path)
-			tempFolder := Config.TempDir + "\\" + tarFileName
-			extractedFiles, err := ExtractTarFile(path, tempFolder)
-			//extractedFiles, err := extractRAR(path, Config.TempDir)
-			if err != nil {
-				log.Printf("Eror extracting tar file: %s : %s", path, err)
-				InsertFilenameToDB(db, path, 0, "", "", "", "0", fmt.Sprintf("%s", err)) //non DICOM file
-			} else {
-				// Print the paths of the extracted files
-				for _, file := range extractedFiles {
-					log.Println("processing Extracted file:", file)
-					processFile(file, " : "+path, wg, sem, activeGoroutines) // not extra go routine to make shure all files processed an cleanup tempdir after
-				}
-
-				// cleanup if temp file from tar archive
-				if strings.HasPrefix(tempFolder, Config.TempDir) {
-
-					// Get the directory of the file
-					//rootDir := filepath.Dir(tempFolder)
-					log.Printf("delete temp folder: %s", tempFolder)
-					// Use os.RemoveAll to delete the root directory and its contents
-					err := os.RemoveAll(tempFolder)
-					if err != nil {
-						log.Println("Error deleting root directory:", err)
-					} else {
-						log.Println("Root directory deleted successfully")
-					}
-				}
-			}
-
-		} else {
-
-			PatientName, PatientID, InstitutionName, err := getDicomData(path)
-			if err != nil {
-				InsertFilenameToDB(db, tarfile+path, 0, PatientName, PatientID, "", "0", "0") //non DICOM file
-				cFilesImportedNoDCMToDB++
-			} else {
-
-				// check for valid institution
-
-				// Split the string by "|"
-				splitFilters := strings.Split(Config.DicomInstituteFilter, "|")
-
-				// Flag to check if any split part contains the entire DicomInstituteFilter
-				validInstitute := false
-
-				// Iterate over the split string and check if any part contains the original filter
-				for _, filter := range splitFilters {
-					if strings.Contains(InstitutionName, filter) {
-						validInstitute = true
-						break
-					}
-				}
-
-				if !validInstitute {
-					err := InsertFilenameToDB(db, tarfile+path, 1, PatientName, PatientID, InstitutionName, "0", "Not valid Institute") // Valid DICOM file
-					if err != nil {
-						log.Printf("DB insert error: %s", err)
-					}
-				} else {
-
-					// send dicom file
-					res, err := SendDicomFile(Config.DicomServerLocalAET, Config.DicomServerRemoteAET, Config.DicomServer, Config.DicomServerPort, path)
-					if err != nil {
-						log.Printf("error sending dicom file: %s", err)
-						err := InsertFilenameToDB(db, tarfile+path, 1, PatientName, PatientID, InstitutionName, "0", fmt.Sprintf("%s", err)) // Valid DICOM file
-						log.Printf("DB insert error: %s", err)
-					} else {
-						log.Printf("result: %s", res)
-						err := InsertFilenameToDB(db, tarfile+path, 1, PatientName, PatientID, InstitutionName, "1", res) // Valid DICOM file
-						log.Printf("DB insert error: %s", err)
-					}
-				}
-
-				cFilesImportedDCMToDB++
-
-			}
-		}
-	} else {
-		cFilesSkippedAlreadyProcessed++
-	}
-	//// Simulate file processing with sleep (replace with actual file processing)
-	//time.Sleep(20 * time.Second)
-}
-
-func walkDir(root string, wg *sync.WaitGroup, sem chan struct{}, activeGoroutines *int32) error {
-	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			wg.Add(1)
-			sem <- struct{}{}                    // Acquire a semaphore slot
-			atomic.AddInt32(activeGoroutines, 1) // Increment the counter for a new Goroutine
-			go processFile(path, "", wg, sem, activeGoroutines)
-		}
-		return nil
-	})
-}
-
 func startFileRunner() {
 
 	log.Printf("'startFileRunner' starting filerunner")
 	fileRunnerRunning = true
 	var wg sync.WaitGroup
-
-	//root := "/home/ulewu/Projects/Golang/GoDICOM/TestDaten" // Replace with your directory path
 
 	sem := make(chan struct{}, Config.MaxGoroutines) // Semaphore to limit to 50 concurrent Goroutines
 
@@ -161,6 +41,122 @@ func startFileRunner() {
 	wg.Wait()
 	fmt.Println("\nAll files processed.")
 	fileRunnerRunning = false
+}
+
+func walkDir(root string, wg *sync.WaitGroup, sem chan struct{}, activeGoroutines *int32) error {
+	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			wg.Add(1)
+			sem <- struct{}{}                    // Acquire a semaphore slot
+			atomic.AddInt32(activeGoroutines, 1) // Increment the counter for a new Goroutine
+			go fileProcessor(path, wg, sem, activeGoroutines)
+		}
+		return nil
+	})
+}
+
+func fileProcessor(path string, wg *sync.WaitGroup, sem chan struct{}, activeGoroutines *int32) {
+	defer wg.Done()
+	defer atomic.AddInt32(activeGoroutines, -1) // Decrement the counter when done
+	defer func() { <-sem }()                    // Release the semaphore slot when done
+
+	exists, err := checkFileInDB(db, path) //First check if file already in DB
+
+	if err != nil {
+		log.Printf("processFile: error checking for file entry in DB: %s", err)
+		return
+	}
+
+	if exists { // skip file that is already in database
+		cFilesSkippedAlreadyProcessed++
+	} else { // Process new file
+
+		if strings.HasSuffix(path, ".tar") {
+			processTarFile(path)
+			return
+		} else {
+			processNonTarFile(path)
+		}
+
+	}
+}
+
+func processTarFile(path string) {
+	log.Printf("File %s is a TAR file... extracting and processing sub-files", path)
+	tarFileName := filepath.Base(path)
+	tempFolder := Config.TempDir + "\\" + tarFileName
+	extractedFiles, err := ExtractTarFile(path, tempFolder)
+	if err != nil {
+		log.Printf("Eror extracting tar file: %s : %s", path, err)
+		InsertFilenameToDB(db, path, 0, "", "", "", "0", fmt.Sprintf("tar extraction error: %s", err)) //error on tar file
+	} else {
+		InsertFilenameToDB(db, path, 0, "", "", "", "0", "tar archive file") //error on tar file
+		// run each extracted files
+		for _, file := range extractedFiles {
+			log.Println("processing Extracted file:", file)
+			processNonTarFile(file) // not extra go routine to make shure all files processed an cleanup tempdir after
+		}
+	}
+	log.Printf("delete temp folder: %s", tempFolder)
+	// Use os.RemoveAll to delete the root directory and its contents
+	err = os.RemoveAll(tempFolder)
+	if err != nil {
+		log.Println("Error deleting root directory:", err)
+	} else {
+		log.Println("Root directory deleted successfully")
+	}
+}
+
+func processNonTarFile(path string, tarArchive string) {
+	PatientName, PatientID, InstitutionName, err := getDicomData(path)
+	if err != nil {
+		log.Printf("non dicom file: %s", path)
+		InsertFilenameToDB(db, path, 0, PatientName, PatientID, "", "0", "0") //non DICOM file
+		cFilesImportedNoDCMToDB++
+	} else {
+		log.Printf("valid dicom file: %s", path)
+		processDicomFile(path, PatientName, PatientID, InstitutionName)
+	}
+}
+
+func processDicomFile(path string, PatientName string, PatientID string, InstitutionName string) {
+
+	if checkDicomInstitute(InstitutionName) {
+		log.Printf("valid Institution: %s for file: %s", InstitutionName, path)
+		// send dicom file
+		res, err := SendDicomFile(Config.DicomServerLocalAET, Config.DicomServerRemoteAET, Config.DicomServer, Config.DicomServerPort, path)
+		if err != nil {
+			log.Printf("error sending dicom file: %s", err)
+			err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, InstitutionName, "0", fmt.Sprintf("%s", err)) // Valid DICOM file
+			log.Printf("DB insert error: %s", err)
+		} else {
+			err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, InstitutionName, "1", res) // Valid DICOM file was send to dicom store
+			log.Printf("DB insert error: %s", err)
+		}
+	} else {
+		log.Printf("non valid Institution: %s for file: %s", InstitutionName, path)
+		err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, InstitutionName, "0", "invalid institutionName") // Valid DICOM file was send to dicom store
+		log.Printf("DB insert error: %s", err)
+	}
+}
+
+func checkDicomInstitute(InstitutionName string) bool {
+	splitFilters := strings.Split(Config.DicomInstituteFilter, "|")
+
+	// Flag to check if any split part contains the entire DicomInstituteFilter
+	validInstitute := false
+
+	// Iterate over the split string and check if any part contains the original filter
+	for _, filter := range splitFilters {
+		if strings.Contains(InstitutionName, filter) {
+			validInstitute = true
+			break
+		}
+	}
+	return validInstitute
 }
 
 // ExtractTarFile extracts a tar file and returns the path of the extracted files
