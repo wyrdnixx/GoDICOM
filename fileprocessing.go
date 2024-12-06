@@ -131,15 +131,22 @@ func processDicomFile(path string, PatientName string, PatientID string, Institu
 		if err != nil {
 			log.Printf("error sending dicom file: %s", err)
 			err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, InstitutionName, "0", fmt.Sprintf("%s", err)) // Valid DICOM file
-			log.Printf("DB insert error: %s", err)
+			if err != nil {
+				log.Printf("DB insert error: %s", err)
+			}
+
 		} else {
 			err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, InstitutionName, "1", res) // Valid DICOM file was send to dicom store
-			log.Printf("DB insert error: %s", err)
+			if err != nil {
+				log.Printf("DB insert error: %s", err)
+			}
 		}
 	} else {
 		log.Printf("non valid Institution: %s for file: %s", InstitutionName, path)
 		err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, InstitutionName, "0", "invalid institutionName") // Valid DICOM file was send to dicom store
-		log.Printf("DB insert error: %s", err)
+		if err != nil {
+			log.Printf("DB insert error: %s", err)
+		}
 	}
 }
 

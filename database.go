@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 
 	_ "github.com/denisenkom/go-mssqldb" // MSSQL driver import
 )
@@ -83,7 +84,7 @@ func InsertFilenameToDB(db *sql.DB, filename string, isDICOM int, PatientName st
 		PatientID,
 		Institute,
 		storeStatus,
-		storeMessage)
+		strings.Replace(storeMessage, "'", "''", -1)) // replace ' by '' -> for SQL Insert text containing ' must be escaped
 
 	// Prepare the statement to avoid SQL injection
 	stmt, err := db.Prepare(query)

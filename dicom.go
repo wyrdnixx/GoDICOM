@@ -79,7 +79,7 @@ func SendDicomFile(aet string, remoteAet string, remoteHost string, remotePort s
 	//storescu -aet "test" term2022 11125 -aec "remote" '/home/ulewu/Projects/Golang/GoDICOM/TestDaten/Braun Albert 220010273/DICOM/0000E0F0/AA42A9F6/AA477D28/0000D070/EE55BACD'
 
 	// Use storescu command to send the file
-	cmd := exec.Command("storescu", "-aet", aet, remoteHost, remotePort, dicomFile)
+	cmd := exec.Command("storescu", "--propose-lossless", "-aet", aet, remoteHost, remotePort, dicomFile)
 
 	output, err := cmd.CombinedOutput()
 
