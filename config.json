@@ -1,6 +1,6 @@
 {
     "MaxGoroutines": 4,
-    "RootDirectory_test": "F:\\2012\\2\\15\\13\\1C6F134D",
+    "RootDirectory_test": "F:\\2012\\2\\15\\13",
     "RootDirectory": "F:\\2012\\2\\15\\13",
     "TempDir": "D:\\TMP",
     "ConnString" :"sqlserver://dicomImport-go:Start123Start123@fnsrvsql-017?database=dicomImport-go",

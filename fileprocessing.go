@@ -114,7 +114,7 @@ func processNonTarFile(file string, path string) {
 	PatientName, PatientID, InstitutionName, err := getDicomData(file)
 	if err != nil {
 		log.Printf("non dicom file: %s", path)
-		InsertFilenameToDB(db, file, path, 0, PatientName, PatientID, "", "0", "0") //non DICOM file
+		InsertFilenameToDB(db, path, "", 0, PatientName, PatientID, "", "0", "0") //non DICOM file
 		cFilesImportedNoDCMToDB++
 	} else {
 		log.Printf("valid dicom file: %s", path)
