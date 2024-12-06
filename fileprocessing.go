@@ -78,7 +78,7 @@ func fileProcessor(path string, wg *sync.WaitGroup, sem chan struct{}, activeGor
 			processTarFile(path)
 			return
 		} else {
-			processNonTarFile(path)
+			processNonTarFile("", path)
 		}
 
 	}
@@ -91,13 +91,13 @@ func processTarFile(path string) {
 	extractedFiles, err := ExtractTarFile(path, tempFolder)
 	if err != nil {
 		log.Printf("Eror extracting tar file: %s : %s", path, err)
-		InsertFilenameToDB(db, path, 0, "", "", "", "0", fmt.Sprintf("tar extraction error: %s", err)) //error on tar file
+		InsertFilenameToDB(db, path, "", 0, "", "", "", "0", fmt.Sprintf("tar extraction error: %s", err)) //error on tar file
 	} else {
-		InsertFilenameToDB(db, path, 0, "", "", "", "0", "tar archive file") //error on tar file
+		InsertFilenameToDB(db, path, "", 0, "", "", "", "0", "tar archive file") //error on tar file
 		// run each extracted files
 		for _, file := range extractedFiles {
 			log.Println("processing Extracted file:", file)
-			processNonTarFile(file) // not extra go routine to make shure all files processed an cleanup tempdir after
+			processNonTarFile(file, path) // not extra go routine to make shure all files processed an cleanup tempdir after
 		}
 	}
 	log.Printf("delete temp folder: %s", tempFolder)
@@ -110,40 +110,40 @@ func processTarFile(path string) {
 	}
 }
 
-func processNonTarFile(path string) {
-	PatientName, PatientID, InstitutionName, err := getDicomData(path)
+func processNonTarFile(file string, path string) {
+	PatientName, PatientID, InstitutionName, err := getDicomData(file)
 	if err != nil {
 		log.Printf("non dicom file: %s", path)
-		InsertFilenameToDB(db, path, 0, PatientName, PatientID, "", "0", "0") //non DICOM file
+		InsertFilenameToDB(db, file, path, 0, PatientName, PatientID, "", "0", "0") //non DICOM file
 		cFilesImportedNoDCMToDB++
 	} else {
 		log.Printf("valid dicom file: %s", path)
-		processDicomFile(path, PatientName, PatientID, InstitutionName)
+		processDicomFile(file, path, PatientName, PatientID, InstitutionName)
 	}
 }
 
-func processDicomFile(path string, PatientName string, PatientID string, InstitutionName string) {
+func processDicomFile(file string, path string, PatientName string, PatientID string, InstitutionName string) {
 
 	if checkDicomInstitute(InstitutionName) {
 		log.Printf("valid Institution: %s for file: %s", InstitutionName, path)
 		// send dicom file
-		res, err := SendDicomFile(Config.DicomServerLocalAET, Config.DicomServerRemoteAET, Config.DicomServer, Config.DicomServerPort, path)
+		res, err := SendDicomFile(Config.DicomServerLocalAET, Config.DicomServerRemoteAET, Config.DicomServer, Config.DicomServerPort, file)
 		if err != nil {
 			log.Printf("error sending dicom file: %s", err)
-			err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, InstitutionName, "0", fmt.Sprintf("%s", err)) // Valid DICOM file
+			err := InsertFilenameToDB(db, file, path, 1, PatientName, PatientID, InstitutionName, "0", fmt.Sprintf("%s", err)) // Valid DICOM file
 			if err != nil {
 				log.Printf("DB insert error: %s", err)
 			}
 
 		} else {
-			err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, InstitutionName, "1", res) // Valid DICOM file was send to dicom store
+			err := InsertFilenameToDB(db, file, path, 1, PatientName, PatientID, InstitutionName, "1", res) // Valid DICOM file was send to dicom store
 			if err != nil {
 				log.Printf("DB insert error: %s", err)
 			}
 		}
 	} else {
 		log.Printf("non valid Institution: %s for file: %s", InstitutionName, path)
-		err := InsertFilenameToDB(db, path, 1, PatientName, PatientID, InstitutionName, "0", "invalid institutionName") // Valid DICOM file was send to dicom store
+		err := InsertFilenameToDB(db, file, path, 1, PatientName, PatientID, InstitutionName, "0", "invalid institutionName") // Valid DICOM file was send to dicom store
 		if err != nil {
 			log.Printf("DB insert error: %s", err)
 		}

@@ -1,5 +1,5 @@
 {
-    "MaxGoroutines": 2,
+    "MaxGoroutines": 4,
     "RootDirectory_test": "F:\\2012\\2\\15\\13\\1C6F134D",
     "RootDirectory": "F:\\2012\\2\\15\\13",
     "TempDir": "D:\\TMP",

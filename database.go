@@ -21,7 +21,8 @@ func initDB(db *sql.DB) error {
 	BEGIN
     CREATE TABLE importfiles (
         id INT IDENTITY(1,1) PRIMARY KEY, -- Auto-increment primary key
-        filename VARCHAR(255) NOT NULL,       -- File name or path (adjust size as needed)
+        filename VARCHAR(255) NOT NULL,       -- File name or path 
+		archiveFile VARCHAR(255) NOT NULL,       -- File name or path 
         isDICOM INT ,             -- 1 for DICOM, 0 for non-DICOM
 		PatientName VARCHAR(255), 		-- patients name from dicom fields
 		PatientID VARCHAR(255), 		-- patients ID from dicom fields
@@ -65,20 +66,12 @@ func checkFileInDB(db *sql.DB, filename string) (bool, error) {
 }
 
 // InsertFilenameToDB checks if the filename exists, and inserts it if it does not
-func InsertFilenameToDB(db *sql.DB, filename string, isDICOM int, PatientName string, PatientID string, Institute string, storeStatus string, storeMessage string) error {
-	/*
-		insertQuery := `INSERT INTO importfiles (filename, isDICOM, PatientName, PatientID, Institute, storeStatus, StoreMessage) VALUES ('` +
-			filename + `' ,` +
-			strconv.Itoa(isDICOM) + `,'` +
-			PatientName + `' , '` +
-			PatientID + `'` + `,'` +
-			Institute + `'` +
-			`);`
-	*/
+func InsertFilenameToDB(db *sql.DB, filename string, archiveFile string, isDICOM int, PatientName string, PatientID string, Institute string, storeStatus string, storeMessage string) error {
 
 	// Create the SQL query with placeholders
-	query := fmt.Sprintf("INSERT INTO importfiles (filename, isDICOM, PatientName, PatientID, Institute, storeStatus, StoreMessage) VALUES ('%s','%s','%s','%s','%s','%s','%s')",
+	query := fmt.Sprintf("INSERT INTO importfiles (filename, archiveFile, isDICOM, PatientName, PatientID, Institute, storeStatus, StoreMessage) VALUES ('%s','%s','%s','%s','%s','%s','%s','%s')",
 		filename,
+		archiveFile,
 		strconv.Itoa(isDICOM),
 		PatientName,
 		PatientID,
