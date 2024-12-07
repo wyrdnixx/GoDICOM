@@ -24,10 +24,16 @@ func startFileRunner() {
 	// Start a Goroutine to monitor the number of active Goroutines
 	go func() {
 		for {
-			//fmt.Printf("%s : Currently running Goroutines: %d\n", time.Now().Format("02.01.2006 15:04:05"), atomic.LoadInt32(&activeGoroutines))
-			log.Printf("'startFileRunner' Currently running Goroutines: %d", atomic.LoadInt32(&activeGoroutines))
 
-			time.Sleep(2000 * time.Millisecond) // Adjust the interval for monitoring
+			if fileRunnerRunning {
+				//fmt.Printf("%s : Currently running Goroutines: %d\n", time.Now().Format("02.01.2006 15:04:05"), atomic.LoadInt32(&activeGoroutines))
+				log.Printf("'startFileRunner' Currently running Goroutines: %d", atomic.LoadInt32(&activeGoroutines))
+
+				time.Sleep(2000 * time.Millisecond) // Adjust the interval for monitoring
+			} else {
+				exitGracefully() // exit programm
+			}
+
 		}
 	}()
 
