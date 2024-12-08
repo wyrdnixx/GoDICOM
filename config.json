@@ -1,5 +1,5 @@
 {
-    "MaxGoroutines": 3,
+    "MaxGoroutines": 4,
     "RootDirectory_test": "F:\\2017\\1",
     "RootDirectory": "F:\\2015\\4\\2",
     "TempDir": "D:\\TMP",
@@ -9,5 +9,5 @@
     "DicomServerPort" : "11125",
     "DicomServerLocalAET" : "DicomImporter",
     "DicomServerRemoteAET" : "DicomStore",
-    "DicomInstituteFilter" : "[Klinikum Friedrichshafen]|[test]|[Klinik Tettnang GmbH]"
+    "DicomInstituteFilter" : "[Klinikum Friedrichshafen]|[Klinikum FN]|[Klinik Tettnang GmbH]"
 }

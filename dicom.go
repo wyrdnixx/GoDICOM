@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"runtime"
 
 	"github.com/suyashkumar/dicom"
 	"github.com/suyashkumar/dicom/pkg/tag"
@@ -17,13 +18,16 @@ func getDicomData(filename string) (string, string, string, error) {
 	// Open the DICOM file
 	//fmt.Println("Processing file:", filename)
 
+	// Manual GarbageCollector - without memory gets overflowed
+	defer runtime.GC() // Run garbage collection
+
 	// Open and parse the DICOM file
 	dcm, err := dicom.ParseFile(filename, nil)
+
 	if err != nil {
 		//log.Printf("Error parsing DICOM file - no valid DICOM %s: %v\n", filename, err)
 		return "", "", "", err
 	}
-	
 
 	// Extract the PatientName tag
 	PatientName := ""
@@ -68,6 +72,8 @@ func getDicomData(filename string) (string, string, string, error) {
 
 // SendDicomFile sends a DICOM file to a remote DICOM SCP using storescu (DCMTK)
 func SendDicomFile(aet string, remoteAet string, remoteHost string, remotePort string, dicomFile string) (string, error) {
+	// Test deactive sending
+	//return "", nil
 	log.Printf("sending")
 	// Read DICOM file with go-dicom (graymeta package)
 	/*
@@ -87,7 +93,6 @@ func SendDicomFile(aet string, remoteAet string, remoteHost string, remotePort s
 	if err != nil {
 		return "", fmt.Errorf("error executing storescu: %v, output: %s", err, output)
 	}
-	
 
 	fmt.Printf("DICOM file sent successfully, output: %s\n", output)
 	return fmt.Sprintf(string(output)), nil

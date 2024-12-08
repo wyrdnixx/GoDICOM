@@ -18,6 +18,8 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Filerunner running status: %t\n", fileRunnerRunning)
 	fmt.Fprintf(w, "activeGoroutines: %d\n", activeGoroutines)
 	fmt.Fprintf(w, "cFilesSkippedAlreadyProcessed: %d\n", cFilesSkippedAlreadyProcessed)
+	fmt.Fprintf(w, "cFilesTarProcessed: %d\n", cFilesTarProcessed)
+
 	fmt.Fprintf(w, "cFilesImportedDCMToDB: %d\n", cFilesImportedDCMToDB)
 	fmt.Fprintf(w, "cFilesImportedNoDCMToDB: %d\n", cFilesImportedNoDCMToDB)
 

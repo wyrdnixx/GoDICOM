@@ -4,12 +4,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"log"
+	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-	"net/http"
 )
 
 // Config struct to hold the configuration values
@@ -32,6 +32,7 @@ var startTime time.Time
 var cFilesSkippedAlreadyProcessed int32
 var cFilesImportedDCMToDB int32
 var cFilesImportedNoDCMToDB int32
+var cFilesTarProcessed int32
 var fileRunnerRunning bool
 
 // loadConfig loads the configuration from a JSON file
@@ -80,9 +81,8 @@ func main() {
 
 	// Debug Memory using ' go tool pprof http://localhost:6060/debug/pprof/heap
 	go func() {
-        log.Println(http.ListenAndServe("localhost:6060", nil))
-    }()
-
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	//// handle strg+c signal
 	// Create a channel to receive OS signals.
@@ -118,9 +118,9 @@ func main() {
 	//log.Fatalf("fatal %d ", 32)
 	initDB(db)
 
-	go startFileRunner()
+	go startWebservice() // Start the webservice in an extra go routine
 
-	startWebservice() // Start the webservice in an extra go routine
+	startFileRunner()
 
 	//exitProgramm()
 }

@@ -11,6 +11,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"golift.io/xtractr"
 )
 
 func startFileRunner() {
@@ -97,14 +99,17 @@ func processTarFile(path string) {
 	tarFileName := filepath.Base(path)
 	tempFolder := Config.TempDir + "\\" + tarFileName
 	extractedFiles, err := ExtractTarFile(path, tempFolder)
+
 	if err != nil {
 		log.Printf("Eror extracting tar file: %s : %s", path, err)
 		InsertFilenameToDB(db, path, "", 0, "", "", "", "0", fmt.Sprintf("tar extraction error: %s", err)) //error on tar file
 	} else {
 		InsertFilenameToDB(db, path, "", 0, "", "", "", "0", "tar archive file") //tar file
 		// run each extracted files
+		//log.Printf("extracted: %s", extractedFiles[0])
 		for _, file := range extractedFiles {
 			log.Println("processing Extracted file:", file)
+			// Test disable extracted processing
 			processNonTarFile(file, path) // not extra go routine to make shure all files processed an cleanup tempdir after
 		}
 	}
@@ -116,6 +121,7 @@ func processTarFile(path string) {
 	} else {
 		log.Println("Root directory deleted successfully")
 	}
+	cFilesTarProcessed++
 }
 
 func processNonTarFile(file string, path string) {
@@ -126,7 +132,7 @@ func processNonTarFile(file string, path string) {
 		InsertFilenameToDB(db, file, path, 0, PatientName, PatientID, "", "0", "0") //non DICOM file
 		cFilesImportedNoDCMToDB++
 	} else {
-		log.Printf("valid dicom file: %s from: %s", file, path)
+		log.Printf("valid dicom file: %s from: %s for %s", file, path, InstitutionName)
 		processDicomFile(&file, &path, PatientName, PatientID, InstitutionName)
 	}
 }
@@ -148,6 +154,7 @@ func processDicomFile(pFile *string, pPath *string, PatientName string, PatientI
 
 		} else {
 			err := InsertFilenameToDB(db, file, path, 1, PatientName, PatientID, InstitutionName, "1", res) // Valid DICOM file was send to dicom store
+			cFilesImportedDCMToDB++
 			if err != nil {
 				log.Printf("DB insert error: %s", err)
 			}
@@ -177,6 +184,29 @@ func checkDicomInstitute(InstitutionName string) bool {
 	return validInstitute
 }
 
+// func extractTar(inputfile string, outputDir string) []string {
+func ExtractTarFile_test(inputfile string, outputDir string) ([]string, error) {
+	log.Printf("ExtractTarFile: %s", inputfile)
+	/* 	tarFileName := filepath.Base(inputfile)
+	   	tempFolder := "D:\\TMP" + "\\" + tarFileName
+	*/
+	x := &xtractr.XFile{
+		FilePath:  inputfile,
+		OutputDir: outputDir, // do not forget this.
+	}
+
+	// size is how many bytes were written.
+	// files may be nil, but will contain any files written (even with an error).
+	//size, files, _, err := xtractr.ExtractFile(x)
+	_, files, _, err := xtractr.ExtractFile(x)
+	if err != nil || files == nil {
+		//log.Fatal(size, files, err)
+	}
+
+	//log.Println("Bytes written:", size, "Files Extracted:\n -", strings.Join(files, "\n -"))
+	return files, err
+}
+
 // ExtractTarFile extracts a tar file and returns the path of the extracted files
 func ExtractTarFile(tarFilePath, destDir string) ([]string, error) {
 	// Check if the file has a .tar extension
@@ -201,10 +231,12 @@ func ExtractTarFile(tarFilePath, destDir string) ([]string, error) {
 		header, err := tarReader.Next()
 		if err == io.EOF {
 			// End of tar file
+
 			return extractedFiles, nil
 			//break
 		}
 		if err != nil {
+
 			return extractedFiles, nil
 		}
 		// Invalid tar header, we just skip the current entry and move to the next
@@ -252,5 +284,4 @@ func ExtractTarFile(tarFilePath, destDir string) ([]string, error) {
 		extractedFiles = append(extractedFiles, extractedFilePath)
 	}
 
-	return extractedFiles, nil
 }
