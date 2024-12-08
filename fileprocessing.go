@@ -33,7 +33,9 @@ func startFileRunner() {
 
 				time.Sleep(2000 * time.Millisecond) // Adjust the interval for monitoring
 			} else {
-				exitGracefully() // exit programm
+				// Keep running or exit if finished
+				//exitGracefully() // exit programm
+
 			}
 
 		}
@@ -49,6 +51,7 @@ func startFileRunner() {
 	wg.Wait()
 	fmt.Println("\nAll files processed.")
 	fileRunnerRunning = false
+	filerunnerFinishedTime = time.Now()
 }
 
 func walkDir(root string, wg *sync.WaitGroup, sem chan struct{}, activeGoroutines *int32) error {
@@ -165,6 +168,7 @@ func processDicomFile(pFile *string, pPath *string, PatientName string, PatientI
 		if err != nil {
 			log.Printf("DB insert error: %s", err)
 		}
+		cFilesSkippedWrongInstitute++
 	}
 }
 

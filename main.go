@@ -29,8 +29,10 @@ var Config Configguration
 var db *sql.DB
 var activeGoroutines int32 // To track the number of active Goroutines
 var startTime time.Time
+var filerunnerFinishedTime time.Time
 var cFilesSkippedAlreadyProcessed int32
 var cFilesImportedDCMToDB int32
+var cFilesSkippedWrongInstitute int32
 var cFilesImportedNoDCMToDB int32
 var cFilesTarProcessed int32
 var fileRunnerRunning bool
@@ -118,9 +120,8 @@ func main() {
 	//log.Fatalf("fatal %d ", 32)
 	initDB(db)
 
-	go startWebservice() // Start the webservice in an extra go routine
-
-	startFileRunner()
+	go startFileRunner()
+	startWebservice() // Start the webservice
 
 	//exitProgramm()
 }
