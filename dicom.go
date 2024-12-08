@@ -23,6 +23,7 @@ func getDicomData(filename string) (string, string, string, error) {
 		//log.Printf("Error parsing DICOM file - no valid DICOM %s: %v\n", filename, err)
 		return "", "", "", err
 	}
+	
 
 	// Extract the PatientName tag
 	PatientName := ""
@@ -86,6 +87,7 @@ func SendDicomFile(aet string, remoteAet string, remoteHost string, remotePort s
 	if err != nil {
 		return "", fmt.Errorf("error executing storescu: %v, output: %s", err, output)
 	}
+	
 
 	fmt.Printf("DICOM file sent successfully, output: %s\n", output)
 	return fmt.Sprintf(string(output)), nil

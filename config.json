@@ -1,7 +1,7 @@
 {
-    "MaxGoroutines": 4,
-    "RootDirectory_test": "F:\\2017\\1\\1",
-    "RootDirectory": "F:\\2015\\4\\2\\0",
+    "MaxGoroutines": 3,
+    "RootDirectory_test": "F:\\2017\\1",
+    "RootDirectory": "F:\\2015\\4\\2",
     "TempDir": "D:\\TMP",
     "ConnString" :"sqlserver://dicomImport-go:Start123Start123@fnsrvsql-017?database=dicomImport-go",
     "connString-vm" :"sqlserver://svcDicomImport:TestPassword@192.168.56.101?database=dicomImport-go",

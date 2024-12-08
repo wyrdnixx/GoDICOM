@@ -53,7 +53,7 @@ func checkFileInDB(db *sql.DB, filename string) (bool, error) {
 	query := `SELECT COUNT(*) FROM importfiles WHERE filename ='` + filename + `';`
 	err := db.QueryRow(query, filename).Scan(&exists)
 	if err != nil {
-		log.Fatalf("'checkFileInDB' Error checking filename existence:%s - Error: %v", filename, err)
+		log.Fatalf("'checkFileInDB' Error checking filename existence:%s Query: %s Error: %v", filename, query, err)
 		return false, err
 	}
 

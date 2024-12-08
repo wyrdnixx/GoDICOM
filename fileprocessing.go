@@ -59,6 +59,7 @@ func walkDir(root string, wg *sync.WaitGroup, sem chan struct{}, activeGoroutine
 			sem <- struct{}{}                    // Acquire a semaphore slot
 			atomic.AddInt32(activeGoroutines, 1) // Increment the counter for a new Goroutine
 			go fileProcessor(path, wg, sem, activeGoroutines)
+			//fileProcessor(path, wg, sem, activeGoroutines) // TEST without go routines
 		}
 		return nil
 	})
@@ -68,6 +69,7 @@ func fileProcessor(path string, wg *sync.WaitGroup, sem chan struct{}, activeGor
 	defer wg.Done()
 	defer atomic.AddInt32(activeGoroutines, -1) // Decrement the counter when done
 	defer func() { <-sem }()                    // Release the semaphore slot when done
+	//defer runtime.GC()                          // Run garbage collection
 
 	exists, err := checkFileInDB(db, path) //First check if file already in DB
 
@@ -84,7 +86,7 @@ func fileProcessor(path string, wg *sync.WaitGroup, sem chan struct{}, activeGor
 			processTarFile(path)
 			return
 		} else {
-			processNonTarFile("", path)
+			processNonTarFile(path, "")
 		}
 
 	}
@@ -99,7 +101,7 @@ func processTarFile(path string) {
 		log.Printf("Eror extracting tar file: %s : %s", path, err)
 		InsertFilenameToDB(db, path, "", 0, "", "", "", "0", fmt.Sprintf("tar extraction error: %s", err)) //error on tar file
 	} else {
-		InsertFilenameToDB(db, path, "", 0, "", "", "", "0", "tar archive file") //error on tar file
+		InsertFilenameToDB(db, path, "", 0, "", "", "", "0", "tar archive file") //tar file
 		// run each extracted files
 		for _, file := range extractedFiles {
 			log.Println("processing Extracted file:", file)
@@ -117,19 +119,22 @@ func processTarFile(path string) {
 }
 
 func processNonTarFile(file string, path string) {
+
 	PatientName, PatientID, InstitutionName, err := getDicomData(file)
 	if err != nil {
-		log.Printf("non dicom file: %s", path)
-		InsertFilenameToDB(db, path, "", 0, PatientName, PatientID, "", "0", "0") //non DICOM file
+		log.Printf("non dicom file: %s", file)
+		InsertFilenameToDB(db, file, path, 0, PatientName, PatientID, "", "0", "0") //non DICOM file
 		cFilesImportedNoDCMToDB++
 	} else {
-		log.Printf("valid dicom file: %s", path)
-		processDicomFile(file, path, PatientName, PatientID, InstitutionName)
+		log.Printf("valid dicom file: %s from: %s", file, path)
+		processDicomFile(&file, &path, PatientName, PatientID, InstitutionName)
 	}
 }
 
-func processDicomFile(file string, path string, PatientName string, PatientID string, InstitutionName string) {
+func processDicomFile(pFile *string, pPath *string, PatientName string, PatientID string, InstitutionName string) {
 
+	file := *pFile
+	path := *pPath
 	if checkDicomInstitute(InstitutionName) {
 		log.Printf("valid Institution: %s for file: %s", InstitutionName, path)
 		// send dicom file
