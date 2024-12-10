@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"regexp"
 	"runtime"
 
 	"github.com/suyashkumar/dicom"
@@ -11,8 +12,7 @@ import (
 	//"github.com/gradienthealth/dicom"
 )
 
-// ToDo : Insitution Name
-func getDicomData(filename string) (string, string, string, error) {
+func getDicomData_old(filename string) (string, string, string, error) {
 	log.Println(filename)
 	//fmt.Println("FileName: ", filename)
 	// Open the DICOM file
@@ -68,6 +68,62 @@ func getDicomData(filename string) (string, string, string, error) {
 
 	// return fmt.Sprintf("%v", ePatientName.Value.GetValue()), nil
 	return PatientName, PatientID, InstitutionName, nil
+}
+
+func getDicomData(dicomFile string) (string, string, string, error) {
+	// +P 0008,0090 - name
+	// +P 0010,0020  - patientID
+	// +P 0008,0080 - Institution
+	cmdPatName := exec.Command("dcmdump.exe", "+P", "0008,0090", dicomFile)
+	cmdPatId := exec.Command("dcmdump.exe", "+P", "0010,0020", dicomFile)
+	cmdInstitute := exec.Command("dcmdump.exe", "+P", "0008,0080", dicomFile)
+
+	outPatName, errPatName := cmdPatName.CombinedOutput()
+	if errPatName != nil {
+		log.Printf("error getting patName %v, output: %s", errPatName, outPatName)
+	}
+
+	outPatId, errPatId := cmdPatId.CombinedOutput()
+	if errPatName != nil {
+		log.Printf("error getting cmdPatId %v, output: %s", errPatId, outPatId)
+	}
+
+	outInstitute, errInstitute := cmdInstitute.CombinedOutput()
+	if errInstitute != nil {
+		log.Printf("error getting patName %v, output: %s", errInstitute, outInstitute)
+	}
+
+	//fmt.Printf("DICOM output: %s\n", output)
+	//fmt.Printf("result: %s ", extractTextBetweenBrackets(string(output)))
+	patName := extractTextBetweenBrackets(string(outPatName))
+	patID := extractTextBetweenBrackets(string(outPatId))
+	Institute := extractTextBetweenBrackets(string(outInstitute))
+	// Print each match on a new line
+
+	if errPatName != nil || errPatId != nil {
+		log.Printf("Non valid DICOM file: %s", dicomFile)
+		return "", "", "", errPatName
+	} else if errInstitute != nil {
+		fmt.Printf("name: %s\n", patName[0])
+		fmt.Printf("ID: %s\n", patID[0])
+		return patName[0], patID[0], "no institution name", nil
+	} else {
+		fmt.Printf("name: %s\n", patName[0])
+		fmt.Printf("ID: %s\n", patID[0])
+		fmt.Printf("Inst: %s\n", Institute[0])
+		return patName[0], patID[0], Institute[0], nil
+	}
+
+}
+
+func extractTextBetweenBrackets(input string) []string {
+	// Define the regex pattern to match text within square brackets, including the brackets.
+	re := regexp.MustCompile(`\[[^\[\]]*\]`)
+
+	// Find all matches in the input string
+	matches := re.FindAllString(input, -1)
+
+	return matches
 }
 
 // SendDicomFile sends a DICOM file to a remote DICOM SCP using storescu (DCMTK)
