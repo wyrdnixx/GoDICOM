@@ -103,7 +103,7 @@ func getDicomData(dicomFile string) (string, string, string, error) {
 	if errPatName != nil || errPatId != nil {
 		log.Printf("Non valid DICOM file: %s", dicomFile)
 		return "", "", "", errPatName
-	} else if len(Institute[0]) == 0 || errInstitute != nil {
+	} else if len(Institute) == 0 || errInstitute != nil {
 		fmt.Printf("name: %s\n", patName[0])
 		fmt.Printf("ID: %s\n", patID[0])
 		return patName[0], patID[0], "no institution name", nil
