@@ -28,6 +28,7 @@ func HomeHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Fprintf(w, "Main Page\n")
 	fmt.Fprintf(w, "Server start time: %s\n", startTime)
+	fmt.Fprintf(w, "Processing folder: %s\n", Config.RootDirectory)
 	fmt.Fprintf(w, "Programm running since: days, hours, minutes, seconds : %d D, %d H, %d M, %d S\n", days, hours, minutes, seconds)
 	fmt.Fprintf(w, "Filerunner running status: %t\n", fileRunnerRunning)
 
