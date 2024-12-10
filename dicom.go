@@ -71,10 +71,10 @@ func getDicomData_old(filename string) (string, string, string, error) {
 }
 
 func getDicomData(dicomFile string) (string, string, string, error) {
-	// +P 0008,0090 - name
+	// +P 0010,0010 - name
 	// +P 0010,0020  - patientID
 	// +P 0008,0080 - Institution
-	cmdPatName := exec.Command("dcmdump.exe", "+P", "0008,0090", dicomFile)
+	cmdPatName := exec.Command("dcmdump.exe", "+P", "0010,0010", dicomFile)
 	cmdPatId := exec.Command("dcmdump.exe", "+P", "0010,0020", dicomFile)
 	cmdInstitute := exec.Command("dcmdump.exe", "+P", "0008,0080", dicomFile)
 
@@ -103,7 +103,7 @@ func getDicomData(dicomFile string) (string, string, string, error) {
 	if errPatName != nil || errPatId != nil {
 		log.Printf("Non valid DICOM file: %s", dicomFile)
 		return "", "", "", errPatName
-	} else if errInstitute != nil {
+	} else if len(Institute[0]) == 0 || errInstitute != nil {
 		fmt.Printf("name: %s\n", patName[0])
 		fmt.Printf("ID: %s\n", patID[0])
 		return patName[0], patID[0], "no institution name", nil
